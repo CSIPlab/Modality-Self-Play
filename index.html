@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MSP: Modality Self-Play</title>
+<meta name="description" content="Modality Self-Play (MSP): training multimodal LLMs to reason jointly over audio and vision without any real paired cross-modal data. NeurIPS 2026.">
+<meta property="og:title" content="MSP: Modality Self-Play for Training Multimodal LLMs Without Paired Cross-Modal Data">
+<meta property="og:description" content="The model writes down what it cannot see or hear, and learns to reason over both. NeurIPS 2026.">
+<meta property="og:image" content="assets/msp_pipeline.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --ink:#16202e; --muted:#5d6775; --faint:#8a93a1;
+  --rule:#e2e8f0; --bg:#ffffff; --panel:#f7fafd; --panel-br:#dce6f2;
+  --navy:#1a3a7a; --accent:#1a5fb4;
+  --green:#1f6b3a; --green-bg:#eef7f0; --green-br:#bedcc6;
+  --rust:#9a5410; --rust-bg:#fdf4e8; --rust-br:#ecd3ae;
+  --maxw:860px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#e8edf4; --muted:#a3adbb; --faint:#7c8695;
+    --rule:#2a3240; --bg:#12161d; --panel:#171d26; --panel-br:#2a3240;
+    --navy:#8fb6ee; --accent:#7aa9e8;
+    --green:#7cc496; --green-bg:#16241c; --green-br:#2d4a37;
+    --rust:#e0a461; --rust-bg:#2a2016; --rust-br:#4d3b22;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#e8edf4; --muted:#a3adbb; --faint:#7c8695;
+  --rule:#2a3240; --bg:#12161d; --panel:#171d26; --panel-br:#2a3240;
+  --navy:#8fb6ee; --accent:#7aa9e8;
+  --green:#7cc496; --green-bg:#16241c; --green-br:#2d4a37;
+  --rust:#e0a461; --rust-bg:#2a2016; --rust-br:#4d3b22;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Charter","Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+  font-size:17px; line-height:1.62;
+  padding:0 20px env(safe-area-inset-bottom,0px);
+}
+img{max-width:100%}
+[hidden]{display:none!important}
+.wrap{max-width:var(--maxw); margin:0 auto}
+a{color:var(--accent); text-decoration:none; border-bottom:1px solid transparent}
+a:hover{border-bottom-color:currentColor}
+
+/* ---- masthead ---- */
+header{padding:58px 0 4px; text-align:center}
+h1{
+  font-size:clamp(28px,4.6vw,40px); line-height:1.2; margin:0 0 6px;
+  letter-spacing:-.012em; color:var(--navy); font-weight:700;
+}
+.sub{font-size:clamp(16px,2.1vw,19px); color:var(--muted); margin:0 0 26px; font-style:italic}
+.venue{
+  display:inline-block; font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:12.5px; font-weight:650; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--navy); border:1.5px solid var(--navy); border-radius:999px;
+  padding:4px 14px; margin-bottom:24px;
+}
+.authors{font-size:17px; margin:0 0 4px; line-height:2}
+.authors a{color:var(--ink)}
+.authors sup{font-size:.72em; color:var(--accent); font-weight:700}
+.affil{font-size:14.5px; color:var(--muted); margin:6px 0 0}
+.affil sup{color:var(--accent); font-weight:700}
+
+/* ---- link buttons ---- */
+.links{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:30px 0 8px}
+.btn{
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif; font-size:14.5px; font-weight:550;
+  padding:9px 18px; border-radius:999px;
+  background:var(--ink); color:var(--bg); border:1.5px solid var(--ink);
+}
+.btn:hover{opacity:.84; border-bottom-color:var(--ink)}
+.btn.ghost{background:transparent; color:var(--ink); border-color:var(--rule)}
+.btn.ghost:hover{border-color:var(--ink); opacity:1}
+.btn[aria-disabled="true"]{opacity:.45; pointer-events:none}
+.btn svg{width:15px; height:15px; flex:none}
+
+/* ---- sections ---- */
+section{padding:40px 0 4px; border-top:1px solid var(--rule); margin-top:46px}
+section:first-of-type{border-top:none; margin-top:0}
+h2{
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:13px; font-weight:700; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--accent); margin:0 0 18px;
+}
+h3{font-size:19px; margin:30px 0 8px; color:var(--navy); font-weight:650}
+p{margin:0 0 16px}
+.lead{font-size:19px; line-height:1.6}
+
+/* ---- figures ---- */
+figure{margin:26px 0 30px}
+figure img{display:block; width:100%; height:auto; border-radius:8px}
+figure.plain img{border:1px solid var(--rule); background:#fff; padding:10px}
+figcaption{font-size:14.5px; color:var(--muted); line-height:1.55; margin-top:12px}
+figcaption b{color:var(--ink); font-weight:650}
+
+/* ---- callout ---- */
+.note{
+  background:var(--panel); border:1px solid var(--panel-br);
+  border-radius:10px; padding:18px 22px; margin:24px 0;
+}
+.note p:last-child{margin-bottom:0}
+.note.green{background:var(--green-bg); border-color:var(--green-br)}
+.note.rust{background:var(--rust-bg); border-color:var(--rust-br)}
+
+/* ---- phase cards ---- */
+.phases{display:grid; gap:16px; grid-template-columns:repeat(3,1fr); margin:24px 0 8px}
+@media(max-width:740px){.phases{grid-template-columns:1fr}}
+.phase{background:var(--panel); border:1px solid var(--panel-br); border-radius:10px; padding:18px}
+.phase .n{
+  font-family:system-ui,sans-serif; font-size:12px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--accent); display:block; margin-bottom:6px;
+}
+.phase h4{margin:0 0 8px; font-size:17px; color:var(--navy); font-weight:650}
+.phase p{font-size:15px; margin:0; color:var(--muted); line-height:1.55}
+
+/* ---- qualitative ---- */
+.qual{
+  display:grid; grid-template-columns:200px 1fr; gap:22px; align-items:start;
+  background:var(--panel); border:1px solid var(--panel-br);
+  border-radius:10px; padding:20px; margin:18px 0;
+}
+@media(max-width:640px){.qual{grid-template-columns:1fr}}
+.qual img{width:100%; border-radius:6px; display:block}
+.qual .tag{
+  font-family:system-ui,sans-serif; font-size:11.5px; font-weight:700; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--faint); display:block; margin-bottom:3px;
+}
+.qual .row{margin-bottom:13px}
+.qual .row:last-child{margin-bottom:0}
+.qual .row p{margin:0; font-size:15.5px; line-height:1.5}
+.proxy{color:var(--rust); font-style:italic}
+.real{color:var(--green)}
+.src{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:var(--faint); margin-top:8px; display:block}
+
+/* ---- tables ---- */
+.scroll{overflow-x:auto; margin:22px 0; -webkit-overflow-scrolling:touch}
+table{border-collapse:collapse; width:100%; font-size:15px; min-width:420px}
+caption{
+  caption-side:top; text-align:left; font-size:14.5px; color:var(--muted);
+  padding-bottom:10px; line-height:1.5;
+}
+th,td{padding:8px 12px; text-align:left; border-bottom:1px solid var(--rule)}
+th{
+  font-family:system-ui,sans-serif; font-size:12.5px; font-weight:650;
+  letter-spacing:.04em; text-transform:uppercase; color:var(--muted);
+  border-bottom:1.5px solid var(--ink);
+}
+td.num,th.num{text-align:right; font-variant-numeric:tabular-nums}
+tr.ours td{font-weight:650; color:var(--green)}
+tr.ours{background:var(--green-bg)}
+tbody tr:last-child td{border-bottom:none}
+
+/* ---- bibtex ---- */
+pre{
+  background:var(--panel); border:1px solid var(--panel-br); border-radius:10px;
+  padding:18px 20px; overflow-x:auto; font-size:13.5px; line-height:1.55;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--ink);
+}
+footer{
+  border-top:1px solid var(--rule); margin-top:52px; padding:28px 0 60px;
+  font-size:14.5px; color:var(--muted);
+}
+footer p{margin:0 0 10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="venue">NeurIPS 2026</div>
+  <h1>Modality Self-Play</h1>
+  <p class="sub">Training Multimodal LLMs Without Paired Cross-Modal Data</p>
+
+  <p class="authors">
+    <a href="https://github.com/Robbyswimmer">Robert Moseley</a><sup>1</sup> &nbsp;·&nbsp;
+    Md Kaykobad Reza<sup>1,2</sup> &nbsp;·&nbsp;
+    Ameya Patil<sup>2</sup> &nbsp;·&nbsp;
+    Edward Ayrapetian<sup>2</sup> &nbsp;·&nbsp;
+    <a href="https://intra.ece.ucr.edu/~sasif/">Salman Asif</a><sup>1</sup>
+  </p>
+  <p class="affil"><sup>1</sup>University of California, Riverside &nbsp;&nbsp; <sup>2</sup>Amazon</p>
+
+  <div class="links">
+    <a class="btn ghost" id="paper-link" href="PAPER_URL" aria-disabled="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      Paper
+    </a>
+    <a class="btn ghost" id="arxiv-link" href="ARXIV_URL" aria-disabled="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+      arXiv
+    </a>
+    <a class="btn ghost" id="code-link" href="REPO_URL" aria-disabled="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>
+      Code
+    </a>
+    <a class="btn ghost" href="#bibtex">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      BibTeX
+    </a>
+  </div>
+</header>
+
+<section>
+  <figure class="plain">
+    <img src="assets/msp_pipeline.svg" alt="The three stages of MSP: Phase 1 unimodal captioning, self-play modality imagination, and Phase 2 multimodal composition training.">
+    <figcaption><b>MSP training pipeline.</b> <b>(1)</b>&nbsp;Phase&nbsp;1 trains one projector per modality using modality–text pairs only. <b>(2)</b>&nbsp;The frozen Phase-1 model then generates a text proxy for the modality it does not observe. <b>(3)</b>&nbsp;Phase&nbsp;2 trains on one real modality together with the proxy for the missing one. No training sample ever contains two real non-text modalities.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Abstract</h2>
+  <p>Large multimodal models have achieved remarkable progress by scaling model capacity and training on massive paired multimodal data. However, this paradigm introduces a fundamental bottleneck: aligned multimodal datasets are expensive to curate, difficult to scale across diverse modality combinations, and increasingly constrain further progress. We introduce <em>Modality Self-Play</em> (MSP), a training framework for multimodal foundation models based on proxy-mediated modality composition. Instead of relying on paired cross-modal data, MSP uses anchor-supporting proxy textual descriptions of unseen modalities as semantic bridges during training. Given an observed modality (e.g., image or audio), the model generates proxy descriptions for complementary unseen modalities, which are then encoded and aligned with the observed modality through learned bridges, enabling cross-modal interaction without real paired non-text supervision.</p>
+  <p>Our central hypothesis is that proxy text, combined with contrastively trained pretrained encoders, provides sufficient semantic structure for multimodal composition to emerge. We show that MSP enables zero-shot modality composition: models trained only with a real anchor modality and accompanying proxy descriptions can integrate and reason over multiple modalities at inference time despite never observing real paired non-text data during training. Empirically, MSP achieves state-of-the-art or competitive performance on multiple multimodal benchmarks. Ablation studies further demonstrate that learned bridges improve alignment, while anchor-supporting proxy descriptions enable effective cross-modal composition. MSP removes the need for real paired non-text (e.g., audio-vision) supervision, while continuing to rely on modality-text pairs, pretrained contrastive encoders, and modality-distribution bridge calibration.</p>
+</section>
+
+<section>
+  <h2>The idea, in plain terms</h2>
+  <p class="lead">A model that has only ever seen images, and only ever heard sounds — never the two together — can still learn to reason over both at once. It gets there by writing down, in words, what the missing modality would be.</p>
+  <p>Teaching a model to reason across modalities normally means collecting data where those modalities appear together: the same recording, seen and heard. That data is expensive, hard to scale, and the cost grows combinatorially as modalities are added. MSP removes that requirement.</p>
+  <p>During training every sample carries exactly one real modality — an image <em>or</em> a sound, never both. For whatever is missing, the model is asked what it would be, and its own answer is used in that slot. The description is text, so a frozen contrastive text encoder can read it; a small frozen <strong>bridge</strong> then moves that text embedding into the region of the space where real audio or real vision features live, and the result enters the language model through the same interface a real modality would use.</p>
+  <div class="note">
+    <p><strong>Why it works.</strong> The training signal is <em>anchor consistency</em>, not literal reconstruction of the held-out scene. A proxy that is wrong about the specific scene but compatible with what the model actually observed still teaches the composition. The <a href="#qualitative">qualitative examples</a> below include two cases of exactly this.</p>
+  </div>
+</section>
+
+<section>
+  <h2>One example, end to end</h2>
+  <figure>
+    <video src="assets/msp_training.mp4" poster="assets/msp_training_poster.jpg"
+           autoplay loop muted playsinline preload="metadata"
+           width="1120" height="680"
+           style="width:100%;height:auto;display:block;border:1px solid var(--rule);border-radius:8px;background:#fff"
+           aria-label="Animation of MSP training on one AVQA example: the model receives a horse image and no audio, writes “A horse is neighing and hooves are clopping on the ground.” as a proxy for the missing audio, places both the real image and the bridged proxy into one prompt alongside the question, answers “A brown horse is being led around a sandy ring.”, and then the loss flows backward into the projectors and LoRA adapters while the encoders and bridge stay frozen.">
+</video>
+  </figure>
+</section>
+
+<section>
+  <h2>How it works</h2>
+  <div class="phases">
+    <div class="phase">
+      <span class="n">Phase 1</span>
+      <h4>Unimodal captioning</h4>
+      <p>Each modality gets its own projector into the language model, trained on ordinary modality–text pairs. Encoders stay frozen; projectors and LoRA adapters train. No paired cross-modal data.</p>
+    </div>
+    <div class="phase">
+      <span class="n">Self-play</span>
+      <h4>Modality imagination</h4>
+      <p>The frozen Phase-1 model is shown one real modality and asked what the other would be. Its answer becomes the text proxy. Generated once, then cached.</p>
+    </div>
+    <div class="phase">
+      <span class="n">Phase 2</span>
+      <h4>Composition training</h4>
+      <p>One real modality plus a proxy for the missing one. Only the proxy passes through the bridge. Never two real non-text modalities.</p>
+    </div>
+  </div>
+
+  <h3>The bridge</h3>
+  <p>The text-encoder and modality-encoder outputs of a contrastive encoder lie in related but shifted regions of a shared space — the <em>modality gap</em>. Feeding text features straight into a projector trained on modality features would be a distribution mismatch. So MSP fits a linear map by ridge regression on 1,000 caption–modality samples (500 train / 500 held out), freezes it, and uses it for the rest of training:</p>
+  <div class="note">
+    <p style="font-family:ui-monospace,Menlo,monospace;font-size:15px;margin:0;text-align:center">
+      W<sub>m</sub> = (T<sup>⊤</sup>T + λI)<sup>−1</sup> T<sup>⊤</sup>R &nbsp;&nbsp;&nbsp; B<sub>m</sub>(t) = W<sub>m</sub><sup>⊤</sup>t &nbsp;&nbsp;&nbsp; λ = 1.0
+    </p>
+  </div>
+  <p>One bridge per modality, fit once before Phase&nbsp;2 and frozen thereafter. It is worth <strong>+2.67</strong> on AVQA and <strong>+7.05</strong> on MUSIC-AVQA over using proxies without it.</p>
+
+  <h3>One real anchor</h3>
+  <p>Some source datasets do contain both modalities. MSP never uses both halves of such a sample: each one is assigned to <em>either</em> its audio <em>or</em> its vision, and is never revisited through the other. The paper calls this the one-real-anchor rule, and it is what makes the no-paired-data claim hold at the sample level rather than just the dataset level.</p>
+
+  <figure class="plain">
+    <img src="assets/msp_architecture.png" alt="Component-level architecture: frozen encoders and text towers, trainable projectors, frozen bridge, token slots, and the Qwen3-8B backbone with LoRA.">
+    <figcaption><b>Component-level view.</b> Frozen contrastive encoders (MetaCLIP ViT-B/16 for vision, LAION-CLAP for audio) and their text towers, trainable per-modality MLP projectors, the frozen text-to-modality bridge on the proxy path, the reserved <code>&lt;vision&gt;</code> and <code>&lt;audio&gt;</code> token slots, and Qwen3-8B with LoRA adapters. Every modality is a single 512-dim token.</figcaption>
+  </figure>
+</section>
+
+<section id="qualitative">
+  <h2>Qualitative results</h2>
+  <p>Each example shows a real anchor in one modality and the proxy text the Phase-1 model generated for the other. <strong>The held-out ground truth is shown for context only — it is never used to generate the proxy.</strong></p>
+
+  <h3>Faithful proxies</h3>
+
+  <div class="qual">
+    <img src="assets/qualitative/mvqa_00000016_ukulele_guitar_duo.jpg" alt="Two musicians on stage playing acoustic guitar and ukulele.">
+    <div>
+      <div class="row"><span class="tag">Real anchor — audio</span><p class="real">Audio clip of a ukulele and guitar playing simultaneously.</p></div>
+      <div class="row"><span class="tag">Generated proxy — vision</span><p class="proxy">“A red acoustic guitar and blue ukulele on a wooden stage. The guitarist strums chords while the ukulele player plucks strings.”</p></div>
+      <div class="row"><span class="tag">Held-out ground truth</span><p>Two musicians on stage; acoustic guitar and ukulele playing together.</p></div>
+      <span class="src">MUSIC-AVQA · audio anchor → vision proxy</span>
+    </div>
+  </div>
+
+  <div class="qual">
+    <img src="assets/qualitative/avqa_NtLXzh-CPxo_000030_horse.jpg" alt="A brown horse being led around a sandy ring by a person.">
+    <div>
+      <div class="row"><span class="tag">Real anchor — vision</span><p class="real">Image of a brown horse in a sandy ring with a person leading it.</p></div>
+      <div class="row"><span class="tag">Generated proxy — audio</span><p class="proxy">“A horse is neighing and hooves are clopping on the ground.”</p></div>
+      <div class="row"><span class="tag">Held-out ground truth</span><p>Horse neighing and hooves clopping on hard ground (audio held out).</p></div>
+      <span class="src">AVQA · vision anchor → audio proxy</span>
+    </div>
+  </div>
+
+  <h3>Anchor-coherent but not faithful</h3>
+  <p>These proxies describe a different scene from the one held out, yet remain compatible with the real anchor. MSP still benefits from them, because the training signal is anchor consistency rather than literal reconstruction.</p>
+
+  <div class="qual">
+    <img src="assets/qualitative/avqa_NumXu4eOqAw_000006_bus_NONFAITHFUL.jpg" alt="A white double-decker bus travelling along a highway.">
+    <div>
+      <div class="row"><span class="tag">Real anchor — audio</span><p class="real">Engine humming with tires rolling over pavement.</p></div>
+      <div class="row"><span class="tag">Generated proxy — vision</span><p class="proxy">“A silver car speeds down a curvy mountain road at sunrise.”</p></div>
+      <div class="row"><span class="tag">Mismatch</span><p>The real scene is a white double-decker bus on a highway; the proxy invents a silver car on a mountain road. Both descriptions are consistent with the engine&nbsp;+&nbsp;tires audio.</p></div>
+      <span class="src">AVQA · NumXu4eOqAw_000006</span>
+    </div>
+  </div>
+
+  <div class="qual">
+    <img src="assets/qualitative/avqa_xeAxybX3i1E_000030_waterfowl_NONFAITHFUL.jpg" alt="Waterfowl on the surface of a body of water.">
+    <div>
+      <div class="row"><span class="tag">Real anchor — audio</span><p class="real">Ducks calling near water.</p></div>
+      <div class="row"><span class="tag">Generated proxy — vision</span><p class="proxy">“A dog grasping a duck.”</p></div>
+      <div class="row"><span class="tag">Mismatch</span><p>The real scene shows ducks in water; the proxy describes a different scene that shares the duck object but introduces a dog. The audio (duck calls) remains consistent with both interpretations.</p></div>
+      <span class="src">AVQA · xeAxybX3i1E_000030</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Results</h2>
+  <p>Zero-shot throughout — MSP is never fine-tuned on these benchmarks, and their training splits are never used. Baselines were allowed paired data but, like MSP, did not fine-tune for these benchmarks.</p>
+
+  <div class="scroll">
+    <table>
+      <caption><b>MUSIC-AVQA.</b> MSP outperforms OneLLM by <b>+18.05</b> and GPT-4o by <b>+15.57</b>, despite GPT-4o's substantially larger parameter count.</caption>
+      <thead><tr><th>Method</th><th class="num">Params</th><th class="num">Accuracy</th></tr></thead>
+      <tbody>
+        <tr><td>ImageBind-LLM</td><td class="num">7B</td><td class="num">39.72</td></tr>
+        <tr><td>X-InstructBLIP</td><td class="num">13B</td><td class="num">44.50</td></tr>
+        <tr><td>ChatBridge</td><td class="num">13B</td><td class="num">43.00</td></tr>
+        <tr><td>OneLLM</td><td class="num">7B</td><td class="num">47.60</td></tr>
+        <tr><td>Qwen2.5-VL</td><td class="num">7B</td><td class="num">47.75</td></tr>
+        <tr><td>GPT-4o</td><td class="num">—</td><td class="num">50.08</td></tr>
+        <tr class="ours"><td>MSP (r = 512)</td><td class="num">8B</td><td class="num">65.65</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <caption><b>AVQA.</b> The highest reported zero-shot result among methods not fine-tuned on AVQA — and above PSAC, HGA and HCRN, which <em>were</em> trained on the paired AVQA train set.</caption>
+      <thead><tr><th>Method</th><th class="num">Params</th><th class="num">Accuracy</th></tr></thead>
+      <tbody>
+        <tr><td>X-InstructBLIP <span style="color:var(--faint)">(zero-shot)</span></td><td class="num">7B</td><td class="num">44.29</td></tr>
+        <tr><td>ImageBind-LLM <span style="color:var(--faint)">(zero-shot)</span></td><td class="num">7B</td><td class="num">55.00</td></tr>
+        <tr><td>PSAC <span style="color:var(--faint)">(trained on AVQA)</span></td><td class="num">—</td><td class="num">78.60</td></tr>
+        <tr><td>HGA <span style="color:var(--faint)">(trained on AVQA)</span></td><td class="num">—</td><td class="num">82.20</td></tr>
+        <tr><td>HCRN <span style="color:var(--faint)">(trained on AVQA)</span></td><td class="num">—</td><td class="num">82.50</td></tr>
+        <tr class="ours"><td>MSP (r = 256)</td><td class="num">8B</td><td class="num">85.73</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <caption><b>OmniBench.</b> Competitive with Baichuan-Omni-1.5 and Gemini-1.5-Pro without ever training on real paired non-text data.</caption>
+      <thead><tr><th>Method</th><th class="num">Params</th><th class="num">Accuracy</th></tr></thead>
+      <tbody>
+        <tr><td>AnyGPT</td><td class="num">7B</td><td class="num">18.04</td></tr>
+        <tr><td>VITA-1.5</td><td class="num">7B</td><td class="num">33.40</td></tr>
+        <tr><td>MiniCPM-o 2.6</td><td class="num">7B</td><td class="num">40.50</td></tr>
+        <tr><td>Baichuan-Omni-1.5</td><td class="num">7B</td><td class="num">42.90</td></tr>
+        <tr><td>Gemini-1.5-Pro</td><td class="num">—</td><td class="num">42.91</td></tr>
+        <tr class="ours"><td>MSP (r = 256)</td><td class="num">8B</td><td class="num">43.26</td></tr>
+        <tr><td>Qwen2.5-Omni</td><td class="num">7B</td><td class="num">56.13</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>What each piece contributes</h3>
+  <div class="scroll">
+    <table>
+      <caption>Audio–video accuracy at r&nbsp;=&nbsp;512 on the validation splits. Proxies do most of the work; the bridge adds a further gain on top.</caption>
+      <thead><tr><th>Configuration</th><th class="num">AVQA</th><th class="num">MUSIC-AVQA</th></tr></thead>
+      <tbody>
+        <tr><td>Without proxy and bridge</td><td class="num">70.21</td><td class="num">45.75</td></tr>
+        <tr><td>With proxy, without bridge</td><td class="num">82.91 <span style="color:var(--green)">(+12.70)</span></td><td class="num">58.60 <span style="color:var(--green)">(+12.85)</span></td></tr>
+        <tr class="ours"><td>With proxy and bridge</td><td class="num">85.58 <span>(+2.67)</span></td><td class="num">65.65 <span>(+7.05)</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>What MSP does and does not assume</h2>
+  <div class="note green">
+    <p style="margin-bottom:10px"><strong>Removed:</strong> the need for real paired non-text supervision — audio and vision originating from the same underlying source.</p>
+    <p><strong>Still relied upon:</strong> modality–text pairs, pretrained contrastive encoders, and modality-distribution bridge calibration.</p>
+  </div>
+  <p>We therefore do not claim the absence of cross-modal priors. Contrastively pretrained encoders already carry transferable cross-modal structure, and MSP leans on it deliberately — proxy text does not replicate an unseen modality, it provides a shared semantic space through which representations can be aligned.</p>
+  <div class="note rust">
+    <p><strong>Limitations.</strong> MSP depends on the quality and semantic consistency of its proxies; noisy or weakly aligned proxies degrade performance. It inherits the coverage limitations and biases of the contrastive encoders it builds on. And proxies are a training-time scaffold — real modalities still outperform their proxy counterparts at inference, every drop significant at <em>p</em>&nbsp;&lt;&nbsp;10<sup>−6</sup>.</p>
+  </div>
+</section>
+
+<section id="bibtex">
+  <h2>BibTeX</h2>
+<pre>@inproceedings{moseley2026msp,
+  title     = {{MSP}: Modality Self-Play for Training Multimodal {LLM}s
+               Without Paired Cross-Modal Data},
+  author    = {Moseley, Robert and Reza, Md Kaykobad and Patil, Ameya and
+               Ayrapetian, Edward and Asif, Salman},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2026}
+}</pre>
+</section>
+
+<footer>
+  <p>This work is partially supported by a gift award from Amazon and an NSF award 2406199.</p>
+  <p style="color:var(--faint)">Qualitative examples are drawn from the AVQA and MUSIC-AVQA benchmarks.</p>
+</footer>
+
+</div>
+</body>
+</html>
