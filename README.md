@@ -7,7 +7,7 @@ Robert Moseley¹ · Md Kaykobad Reza¹˒² · Ameya Patil² · Edward Ayrapetian
 <br>¹University of California, Riverside &nbsp;&nbsp; ²Amazon
 
 **[Project page](https://robbyswimmer.github.io/Modality-Self-Play/)** ·
-Paper *(coming)* · arXiv *(coming)* · Code *(coming)*
+**[Paper (PDF)](https://arxiv.org/pdf/2610.20965)** · **[arXiv](https://arxiv.org/abs/2610.20965)** · Code *(coming soon)*
 
 ---
 
