@@ -3,7 +3,7 @@
 **MSP: Modality Self-Play for Training Multimodal LLMs Without Paired Cross-Modal Data**
 <br>NeurIPS 2026
 
-Robert Moseley¹ · Md Kaykobad Reza¹˒² · Ameya Patil² · Edward Ayrapetian² · Salman Asif¹
+Robert Moseley¹ · Md Kaykobad Reza¹˒² · Ameya Patil² · Edward Ayrapetian² · M. Salman Asif¹
 <br>¹University of California, Riverside &nbsp;&nbsp; ²Amazon
 
 **[Project page](https://csiplab.github.io/Modality-Self-Play/)** ·
@@ -123,7 +123,7 @@ Code release to follow.
   title     = {{MSP}: Modality Self-Play for Training Multimodal {LLM}s
                Without Paired Cross-Modal Data},
   author    = {Moseley, Robert and Reza, Md Kaykobad and Patil, Ameya and
-               Ayrapetian, Edward and Asif, Salman},
+               Ayrapetian, Edward and Asif, M. Salman},
   booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
   year      = {2026}
 }
