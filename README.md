@@ -132,6 +132,13 @@ Code release to follow.
 ## Acknowledgements
 
 This work is partially supported by a gift award from Amazon and an NSF award 2406199.
+This work used Anvil at Purdue University through allocation ELE260028 from the Advanced
+Cyberinfrastructure Coordination Ecosystem: Services & Support (ACCESS) program, which is
+supported by U.S. National Science Foundation grants #2138259, #2138286, #2138307,
+#2137603, and #2138296.
+
+Ameya Patil and Edward Ayrapetian are employed by Amazon. The authors declare no other
+competing interests.
 
 Qualitative examples are drawn from the AVQA and MUSIC-AVQA benchmarks, which
 carry their own licences.
