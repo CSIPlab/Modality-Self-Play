@@ -1,3 +1,22 @@
-.DS_Store
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.DS_Store
+.env
+*.egg-info/
+.venv/
+venv/
+
+# local artefacts - never commit
+/data/
+/models/
+/outputs/
+/results/
+/logs/
+/checkpoints/
+*.pt
+*.pth
+*.safetensors
+*.npy
+*.npz
+wandb/

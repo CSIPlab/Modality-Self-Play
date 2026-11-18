@@ -1,0 +1,49 @@
+# MSP model registry
+# Reference architecture parameters for all supported models.
+
+encoder:
+  metaclip-b16-fullcc:
+    model_name: "ViT-B-16-quickgelu"
+    pretrained: "metaclip_fullcc"
+    hidden_size: 512
+    num_layers: 12
+    pooling: "CLS"
+    loss: "softmax"            # InfoNCE / softmax contrastive loss
+    image_size: 224
+    patch_size: 16
+    num_patches: 196           # (224/16)^2
+    context_length: 77
+
+llm:
+  qwen3-1.7b:
+    hf_id: "Qwen/Qwen3-1.7B"
+    hidden_size: 2048
+    num_layers: 28
+    num_attention_heads: 16
+    num_kv_heads: 8
+
+  qwen3-4b:
+    hf_id: "Qwen/Qwen3-4B"
+    hidden_size: 2560
+    num_layers: 36
+    num_attention_heads: 32
+    num_kv_heads: 8
+
+  qwen3-8b:
+    hf_id: "Qwen/Qwen3-8B"
+    hidden_size: 4096
+    num_layers: 36
+    num_attention_heads: 32
+    num_kv_heads: 8
+
+# Projector dimension pairings (encoder_dim -> llm_dim)
+projector_pairings:
+  qwen3-1.7b:
+    input_dim: 512
+    output_dim: 2048
+  qwen3-4b:
+    input_dim: 512
+    output_dim: 2560
+  qwen3-8b:
+    input_dim: 512
+    output_dim: 4096

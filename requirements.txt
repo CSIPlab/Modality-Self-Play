@@ -1,0 +1,28 @@
+# Requires Python >= 3.10.
+# Derived from the imports actually present in src/. Versions are intentionally
+# unpinned except where the code depends on a known interface; pin to your own
+# environment before reproducing results.
+
+torch
+torchaudio
+torchvision
+transformers
+accelerate
+peft
+safetensors
+open_clip_torch        # MetaCLIP / CLIP vision + text towers
+timm
+numpy
+omegaconf
+Pillow
+tqdm
+
+# evaluation / captioning metrics
+nltk
+pycocoevalcap
+
+# optional: multi-GPU training paths
+# deepspeed
+
+# tests
+pytest

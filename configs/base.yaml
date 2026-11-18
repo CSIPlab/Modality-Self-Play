@@ -1,0 +1,78 @@
+# MSP Default Configuration
+
+project_name: "msp"
+seed: 42
+
+paths:
+  root: "."
+  data_dir: "data"
+  model_dir: "models"
+  output_dir: "outputs"
+  log_dir: "logs"
+
+encoder:
+  name: "metaclip-b16-fullcc"
+  model_name: "ViT-B-16-quickgelu"
+  pretrained: "metaclip_fullcc"
+  hidden_size: 512
+  image_size: 224
+  patch_size: 16
+  num_patches: 196
+  context_length: 77
+  loss: "softmax"
+  freeze: true
+
+llm:
+  name: "qwen3-8b"
+  hf_id: "Qwen/Qwen3-8B"
+  local_path: "models/qwen3-8b"
+  hidden_size: 4096
+
+projector:
+  input_dim: 512
+  output_dim: 4096
+  hidden_dim: 512
+  activation: "gelu"
+  normalize: true
+
+dataset:
+  json_path: "data/llava_instruct_150k/llava_instruct_150k.json"
+  captions_path: "data/captions/captions.json"
+  image_dir: "data/coco/train2017"
+  val_split: 0.02
+  max_seq_length: 2048
+  max_samples: 0
+  system_prompt: "You are a helpful assistant."
+
+training:
+  mode: "proxy"               # proxy | real_image | text_only
+  stage: 1                    # 1 = projector only, 2 = LoRA/full
+  epochs: 1
+  batch_size: 8
+  learning_rate: 1.0e-3
+  weight_decay: 0.0
+  warmup_ratio: 0.03
+  lr_scheduler: "cosine"
+  bf16: true
+  gradient_accumulation_steps: 4
+  max_grad_norm: 1.0
+  eval_steps: 500
+  save_steps: 1000
+  log_steps: 50
+  output_dir: "outputs"
+  lora:
+    enabled: true
+    r: 512
+    alpha: 16
+    dropout: 0.05
+    # Attention projections.
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+
+eval:
+  batch_size: 16
+  max_new_tokens: 256
+  temperature: 0.0

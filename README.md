@@ -7,7 +7,7 @@ Robert Moseley¹ · Md Kaykobad Reza¹˒² · Ameya Patil² · Edward Ayrapetian
 <br>¹University of California, Riverside &nbsp;&nbsp; ²Amazon
 
 **[Project page](https://csiplab.github.io/Modality-Self-Play/)** ·
-**[Paper (PDF)](https://arxiv.org/pdf/2610.20965)** · **[arXiv](https://arxiv.org/abs/2610.20965)** · Code *(coming soon)*
+**[Paper (PDF)](https://arxiv.org/pdf/2610.20965)** · **[arXiv](https://arxiv.org/abs/2610.20965)** · **[Code](https://github.com/CSIPlab/Modality-Self-Play)**
 
 ---
 
@@ -112,9 +112,142 @@ proxy counterparts at inference.
 ```
 index.html    project page (static, no build step)
 assets/       figures, animation, qualitative frames
+src/          the method: encoders, projectors, bridges, self-play, training, evaluation
+configs/      model and training configuration
+tests/        unit tests
 ```
 
-Code release to follow.
+## Code layout
+
+```
+src/
+  models/       encoders, per-modality MLP projectors, LLM wrapper
+  data/         datasets and feature precomputation
+  selfplay/     proxy generation - the model describes the modality it cannot observe
+  training/     Phase 1 and Phase 2 training loops
+  analysis/     bridge fitting and the bridge modules
+  evaluation/   AVQA, MUSIC-AVQA, OmniBench and composition evaluation
+configs/        model and training configuration
+tests/          unit tests
+```
+
+Every runnable module is a `python -m` entry point with `--help`.
+
+## Pipeline
+
+The stages below correspond to the three panels of Figure 1 in the paper.
+
+**1 — Precompute features.** The encoders (MetaCLIP ViT-B/16 for vision,
+LAION-CLAP for audio) are frozen, so every modality feature is computed once as
+a single 512-d vector and cached.
+
+```bash
+python -m src.data.precompute        --help   # vision
+python -m src.data.precompute_audio  --help   # audio
+```
+
+**2 — Phase 1: per-modality projectors.** Each modality gets its own MLP
+projector (512 -> 4096), trained on modality-text pairs only -- AudioCaps and
+WavCaps for audio, LLaVA-665K for vision. No paired cross-modal data is used.
+Each batch carries features from exactly one modality, and the two modalities
+alternate. For the first `--projector_warmup_steps` optimizer steps (2,000 by
+default) only the projectors are updated; the LoRA parameters are unfrozen
+afterwards.
+
+```bash
+python -m src.training.train_multimodal --phase 1 --modality vision \
+    --qa_data <llava-665k.json> --qa_format llava \
+    --features_path <vision_features.pt>
+
+python -m src.training.train_multimodal --phase 1 --modality audio \
+    --qa_data <audiocaps.jsonl> --qa_format audiocaps \
+    --features_path <audio_features.pt>
+```
+
+**3 — Generate self-play proxies.** The frozen Phase-1 model is conditioned on
+the real anchor and prompted to describe the modality it cannot observe. There
+is no external captioner: the same model that learned vision writes the audio
+description. Proxies are generated once and cached.
+
+```bash
+python -m src.selfplay.imagine_modality     --help   # anchor -> proxy text
+python -m src.selfplay.encode_imaginations  --help   # proxy text -> features
+```
+
+**4 — Fit the bridges.** One linear ridge map per modality, fit in closed form
+on 1,000 calibration pairs (500 fit / 500 held out) and frozen thereafter.
+
+```bash
+python -m src.analysis.fit_offline_bridges --modalities audio,vision \
+    --output_dir outputs/offline_bridges
+```
+
+**5 — Phase 2: composition training.** One real anchor plus a bridged proxy for
+the missing modality. Only the proxy passes through the bridge. Modality
+dropout (`--modality_dropout_prob`, 0.15 by default) zeroes a non-anchor
+feature now and then so absent modalities are not treated as malformed input;
+the anchor is never dropped.
+
+```bash
+python -m src.training.train_composition --help
+```
+
+`train_composition` enforces the one-real-anchor rule: a source sample that
+happens to contain both modalities is assigned to one of them and is never
+revisited through the other.
+
+**6 — Evaluate.** MUSIC-AVQA, AVQA and OmniBench are evaluation benchmarks
+only: MSP is never trained on them and their training splits are never used.
+The training entry points reject these formats outright.
+
+```bash
+python -m src.data.precompute_avqa               --help   # benchmark features
+python -m src.evaluation.eval_composition        --help   # MUSIC-AVQA, AVQA
+python -m src.evaluation.eval_crossmodal_holdout --help
+python -m src.evaluation.eval_multimodal         --help
+```
+
+## Setup
+
+Requires **Python 3.10 or newer** (the code uses PEP 604 `X | None` annotations).
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Requires a CUDA GPU for training. Paths to datasets, checkpoints and output
+directories are passed as arguments or set in `configs/` — nothing is hardcoded.
+
+## What is not in this repository
+
+- **Datasets.** AVQA, MUSIC-AVQA, OmniBench, AudioCaps, WavCaps, Clotho-AQA,
+  VQAv2 and LLaVA-665K must be obtained from their original sources under their
+  own licences.
+- **Checkpoints and cached features.** Not distributed here.
+- **Cluster job scripts.** The original scheduler scripts were specific to our
+  compute environment and are not included. Entry points above take plain
+  arguments and run anywhere.
+- **Dataset preparation.** The scripts that assemble the QA files and extract
+  raw media -- including uniformly sampling four frames per video and
+  mean-pooling them into a single vision token -- are not included. The
+  entry points above consume the resulting QA JSON and cached feature files.
+- **Analysis and figure code.** The scripts that produced the paper's tables,
+  plots and mechanism probes are not included. This repository is the method
+  and the training and evaluation pipeline only.
+
+## Notes
+
+- The code covers the audio and vision pathways reported in the paper. Other
+  modalities explored during development are not included.
+
+## Licence
+
+Released under the MIT Licence - see [LICENSE](LICENSE).
+
+Third-party model weights and datasets used with this code (MetaCLIP,
+LAION-CLAP, Qwen3, AVQA, MUSIC-AVQA, OmniBench, AudioCaps, WavCaps, Clotho-AQA,
+VQAv2, LLaVA-665K) carry their own licences and are not covered by this one.
 
 ## Citation
 
@@ -142,3 +275,4 @@ competing interests.
 
 Qualitative examples are drawn from the AVQA and MUSIC-AVQA benchmarks, which
 carry their own licences.
+
